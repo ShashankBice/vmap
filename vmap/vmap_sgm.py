@@ -80,7 +80,7 @@ def get_stereo_opt(threads=28, kernel=(35,35), nlevels=5, spr=1, timeout=360, er
         #stereo_opt.extend(['--stereo-algorithm', '2'])
         #bro nodes had 128 GB of RAM, 28 threads, ~4.7 GB/thread
         # switch to non-NCC cost-mode, as it does not work with small kernels
-        stereo_opt.extend(['--cost-mode','2'])
+        stereo_opt.extend(['--cost-mode','4'])
         stereo_opt.extend(['--corr-tile-size', str(corr_tile_size)])
         #stereo_opt.extend(['--xcorr-threshold','-1'])
         stereo_opt.extend(['--median-filter-size', '5'])
@@ -219,7 +219,11 @@ def main():
     #SGM correlator
     if spr > 3:
         #kernel = (7,7)
-        kernel = (11,11)
+        if args.kernel > 15:
+            print("This kernel size is too big for SGM/MGM, switching back to 11 x 11 px kernel")
+            kernel = (11,11)
+        else:
+            kernel = (args.kernel,args.kernel)
         erode = 0
 
     #Smooth the output F.tif 
@@ -334,6 +338,7 @@ def main():
         parallel_stereo = False
             
     #Should have extra kwargs option here
+    print(kernel)
     stereo_opt = get_stereo_opt(threads=threads, kernel=kernel, timeout=timeout, \
             erode=erode, spr=spr, align=align,corr_tile_size=corr_tile_size)
     
@@ -352,9 +357,10 @@ def main():
     #Run stereo_pprc
     if not os.path.exists(outprefix+'-R_sub.tif'):
         if not parallel_stereo:
+            print(stereo_opt+stereo_args)
             run_cmd('stereo_pprc', stereo_opt+stereo_args, msg='0: Preprocessing')
         else:
-            run_cmd('parallel_stereo','--entry-point','0','--stop-point','1',stereo_opt+stereo_args, msg='0: Preprocessing')
+            run_cmd('parallel_stereo',['--entry-point','0','--stop-point','1']+stereo_opt+stereo_args, msg='0: Preprocessing')
         #Copy proj info to outputs, this should happen automatically now?
         for ext in ('L', 'R', 'L_sub', 'R_sub', 'lMask', 'rMask', 'lMask_sub', 'rMask_sub'):
             geolib.copyproj(ds1_clip_fn, '%s-%s.tif' % (outprefix,ext))
@@ -448,7 +454,7 @@ def main():
         if not parallel_stereo:
             run_cmd('stereo_corr', newopt+stereo_opt+stereo_args, msg='1.1: Low-res Correlation')
         else:
-            run_cmd('parallel_stereo','--entry-point','1','--stop-point','2', newopt+stereo_opt+stereo_args, msg='1.1: Low-res Correlation')
+            run_cmd('parallel_stereo',['--entry-point','1','--stop-point','2']+ newopt+stereo_opt+stereo_args, msg='1.1: Low-res Correlation')
     #Copy projection info to D_sub
     geolib.copyproj(outprefix+'-L_sub.tif', outprefix+'-D_sub.tif')
       
@@ -481,7 +487,7 @@ def main():
         if not parallel_stereo:
             run_cmd('stereo_corr', stereo_opt+stereo_args, msg='1: Correlation')
         else:
-            run_cmd('parallel_stereo','--entry-point','1','--stop-point','2', stereo_opt+stereo_args, msg='1: Correlation')
+            run_cmd('parallel_stereo',['--entry-point','1','--stop-point','2']+stereo_opt+stereo_args, msg='1: Correlation')
         geolib.copyproj(ds1_clip_fn, outprefix+'-D.tif')
 
     #Run stereo_rfne
@@ -491,7 +497,7 @@ def main():
                 run_cmd('stereo_rfne', stereo_opt+stereo_args, msg='2: Refinement')
             else:
                 # note that with current settings, the refinement mode will not do anything with sgm
-                run_cmd('parallel_stereo', '--entry-point','2','--stop-point','3',stereo_opt+stereo_args, msg='2: Refinement')
+                run_cmd('parallel_stereo', ['--entry-point','2','--stop-point','3']+stereo_opt+stereo_args, msg='2: Refinement')
             geolib.copyproj(ds1_clip_fn, outprefix+'-RD.tif')
         d_fn = make_ln(outdir, outprefix, '-RD.tif')
     else:
@@ -505,7 +511,7 @@ def main():
         if not parallel_stereo:
             run_cmd('stereo_fltr', stereo_opt+stereo_args, msg='3: Filtering')
         else:
-            run_cmd('parallel_stereo','--entry-point','3','--stop-point','4',stereo_opt+stereo_args, msg='3: Filtering')
+            run_cmd('parallel_stereo',['--entry-point','3','--stop-point','4']+stereo_opt+stereo_args, msg='3: Filtering')
         geolib.copyproj(ds1_clip_fn, outprefix+'-F.tif')
 
 
