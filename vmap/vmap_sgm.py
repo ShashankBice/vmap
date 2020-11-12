@@ -65,8 +65,8 @@ def get_stereo_opt(threads=28, kernel=(35,35), nlevels=5, spr=1, timeout=360, er
     #Define the search area
     #Useful if you know your orhotorectification is good to, say 100 pixels in any direction
     #stereo_opt.extend(['--corr-search', '-100', '-100', '100', '100'])
-    stereo_opt.extend(['--subpixel-mode', str(spr)])
-    stereo_opt.extend(['--xcorr-threshold', '0'])
+    #stereo_opt.extend(['--subpixel-mode', str(spr)])
+    stereo_opt.extend(['--xcorr-threshold', '1'])
     #If using Semi-global matching (spr 0):
     if spr > 3:
         #TODO:
@@ -85,9 +85,11 @@ def get_stereo_opt(threads=28, kernel=(35,35), nlevels=5, spr=1, timeout=360, er
         #stereo_opt.extend(['--xcorr-threshold','-1'])
         stereo_opt.extend(['--median-filter-size', '5'])
         stereo_opt.extend(['--texture-smooth-size', '11'])
+        spr = 2
     else:
         #Sub-pixel kernel size (ASP default is 35)
         #Set to same as integer correlator kernel
+        # force bayes_em even in case of SGM
         stereo_opt.extend(['--subpixel-kernel', str(kernel[0]), str(kernel[1])])
         #Note: stereo_fltr throws out a lot of good data when noisy
         #Want to play with the following options
@@ -96,6 +98,7 @@ def get_stereo_opt(threads=28, kernel=(35,35), nlevels=5, spr=1, timeout=360, er
         #--rm-threshold 3
         if erode > 0:
             stereo_opt.extend(['--erode-max-size', str(erode)])
+    stereo_opt.extend(['--subpixel-mode', str(spr)])
     return stereo_opt
 
 def make_ln(outdir, outprefix, ext):
@@ -221,7 +224,7 @@ def main():
         #kernel = (7,7)
         if args.kernel > 15:
             print("This kernel size is too big for SGM/MGM, switching back to 11 x 11 px kernel")
-            kernel = (11,11)
+            kernel = (9,9)
         else:
             kernel = (args.kernel,args.kernel)
         erode = 0
